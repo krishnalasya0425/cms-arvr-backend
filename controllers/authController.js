@@ -2,7 +2,7 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, "secretkey", { expiresIn: "30d" });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
 // Register User
@@ -43,3 +43,29 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// Auth Middleware
+function authMiddleware(req, res, next) {
+  const token = req.headers["authorization"]?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "No token provided" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+}
+
+// Get current user
+exports.getUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("username email");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.authMiddleware = authMiddleware;
