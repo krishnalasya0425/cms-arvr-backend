@@ -88,6 +88,7 @@ exports.getUser = async (req, res) => {
   }
 };
 
+// controllers/authController.js
 exports.getAllUsers = async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId).select("username email role");
@@ -95,18 +96,27 @@ exports.getAllUsers = async (req, res) => {
     if (!currentUser) return res.status(404).json({ message: "User not found" });
 
     if (currentUser.role === "admin") {
-      const users = await User.find()
-        .select("username email role assignedProject")
+      const users = await User.find({ role: { $ne: "admin" } })
+        .select("_id username email role assignedProject")
         .populate({ path: "assignedProject", select: "name" });
-      return res.json(users);
+
+      // Optional: only include unassigned users in dropdown
+      const availableUsers = users.map(u => ({
+        _id: u._id,
+        username: u.username,
+        email: u.email,
+        assignedProject: u.assignedProject || null,
+      }));
+
+      return res.json(availableUsers);
     }
 
- 
-    res.json([
-      await User.findById(req.userId)
-        .select("username email role assignedProject")
-        .populate({ path: "assignedProject", select: "name" }),
-    ]);
+    // Normal user sees only themselves
+    const user = await User.findById(req.userId)
+      .select("_id username email role assignedProject")
+      .populate({ path: "assignedProject", select: "name" });
+
+    res.json([user]);
   } catch (err) {
     console.error("getAllUsers error:", err.message);
     res.status(500).json({ message: "Server error" });
