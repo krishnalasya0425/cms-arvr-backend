@@ -142,6 +142,7 @@ exports.getProjects = async (req, res) => {
 };
 
 
+
 exports.getProjectDetails = async (req, res) => {
   try {
     const { id } = req.params;
