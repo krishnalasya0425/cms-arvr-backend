@@ -7,6 +7,7 @@ const {
   unassignUserFromProject,
   deleteProject,
   getProjectDetails,
+  updateProject,
 } = require("../controllers/projectController");
 
 const { authMiddleware } = require("../controllers/authController");
@@ -14,6 +15,7 @@ const { authMiddleware } = require("../controllers/authController");
 router.post("/create", authMiddleware, createProject);
 // Assign user to project (Admin only)
 router.put("/:id/assign", assignUsersToProject);
+router.put("/:id", updateProject);
 
 // Unassign user from project (Admin only)
 router.put("/:id/unassign", unassignUserFromProject);

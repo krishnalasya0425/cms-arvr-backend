@@ -95,6 +95,30 @@ exports.unassignUserFromProject = async (req, res) => {
 };
 
 
+exports.updateProject = async (req, res) => {
+  try {
+    const decoded = checkAdmin(req);
+    if (!decoded) return res.status(403).json({ message: "Only admin can update projects" });
+
+    const { id } = req.params;
+    const { name, modules } = req.body;
+
+    const project = await Project.findByIdAndUpdate(
+      id,
+      { name, modules },
+      { new: true }
+    ).populate("assignedTo", "username email");
+
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    res.json(project);
+  } catch (err) {
+    console.error("Update project error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 exports.getProjects = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
