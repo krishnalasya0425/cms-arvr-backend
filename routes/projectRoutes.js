@@ -12,8 +12,11 @@ const {
 const { authMiddleware } = require("../controllers/authController");
 
 router.post("/create", authMiddleware, createProject);
-router.put("/:id/assign-user", authMiddleware, assignUsersToProject);
-router.put("/:id/unassign-user", authMiddleware, unassignUserFromProject); 
+// Assign user to project (Admin only)
+router.put("/:id/assign", assignUsersToProject);
+
+// Unassign user from project (Admin only)
+router.put("/:id/unassign", unassignUserFromProject);
 router.get("/", authMiddleware, getProjects);
 router.get("/:id", authMiddleware, getProjectDetails);
 router.delete("/:id", authMiddleware, deleteProject);

@@ -1,6 +1,6 @@
 const Project = require("../models/Project");
 const jwt = require("jsonwebtoken");
-
+const User=require("../models/User")
 
 const checkAdmin = (req) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -57,6 +57,9 @@ exports.assignUsersToProject = async (req, res) => {
 
     if (!project) return res.status(404).json({ message: "Project not found" });
 
+
+    await User.findByIdAndUpdate(userId, { assignedProject: project._id });
+
     res.json(project);
   } catch (err) {
     console.error("Assign user error:", err);
@@ -64,20 +67,25 @@ exports.assignUsersToProject = async (req, res) => {
   }
 };
 
-// ✅ Unassign user from a project (Admin Only)
 exports.unassignUserFromProject = async (req, res) => {
   try {
     const decoded = checkAdmin(req);
     if (!decoded) return res.status(403).json({ message: "Only admin can unassign users" });
 
     const { id } = req.params;
-    const project = await Project.findByIdAndUpdate(
-      id,
-      { assignedTo: null },
-      { new: true }
-    );
 
+    const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
+
+    const userId = project.assignedTo;
+
+
+    project.assignedTo = null;
+    await project.save();
+
+    if (userId) {
+      await User.findByIdAndUpdate(userId, { assignedProject: null });
+    }
 
     res.json({ message: "User unassigned successfully", project });
   } catch (err) {
@@ -86,7 +94,7 @@ exports.unassignUserFromProject = async (req, res) => {
   }
 };
 
-// Get Projects (Admin -> all, User -> their own)
+
 exports.getProjects = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
@@ -109,7 +117,7 @@ exports.getProjects = async (req, res) => {
   }
 };
 
-// ✅ Get full details of a project
+
 exports.getProjectDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -126,7 +134,7 @@ exports.getProjectDetails = async (req, res) => {
   }
 };
 
-// Delete Project (Admin Only)
+
 exports.deleteProject = async (req, res) => {
   try {
     const decoded = checkAdmin(req);
