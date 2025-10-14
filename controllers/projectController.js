@@ -1,7 +1,7 @@
 const Project = require("../models/Project");
 const jwt = require("jsonwebtoken");
 const User=require("../models/User")
-
+const fs=require("fs")
 const checkAdmin = (req) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return null;
@@ -22,16 +22,18 @@ exports.createProject = async (req, res) => {
       return res.status(403).json({ message: "Only admin can create projects" });
     }
 
-    const { name, modules } = req.body;
+    const { name, modules, assignedTo,models } = req.body;
     if (!name) return res.status(400).json({ message: "Project name is required" });
-const projectData = {
-  name,
-  createdBy: userId,
-  modules: modules || [],
-};
 
-if (req.body.assignedTo) projectData.assignedTo = req.body.assignedTo; 
-const project = await Project.create(projectData);
+    const projectData = { name, createdBy: userId, modules: modules || [] , models: models || [] };
+    if (assignedTo) projectData.assignedTo = assignedTo;
+
+    const project = await Project.create(projectData);
+
+    // Assign project to user in User collection
+    if (assignedTo) {
+      await User.findByIdAndUpdate(assignedTo, { assignedProject: project._id });
+    }
 
     res.status(201).json(project);
   } catch (err) {
@@ -45,27 +47,33 @@ exports.assignUsersToProject = async (req, res) => {
     const decoded = checkAdmin(req);
     if (!decoded) return res.status(403).json({ message: "Only admin can assign users" });
 
-    const { id } = req.params;
+    const { id } = req.params; // project ID
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ message: "userId is required" });
 
-    const project = await Project.findByIdAndUpdate(
-      id,
-      { assignedTo: userId },
-      { new: true }
-    ).populate("assignedTo", "username email");
-
+    const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
+    // Unassign previous user if any
+    if (project.assignedTo && project.assignedTo.toString() !== userId) {
+      await User.findByIdAndUpdate(project.assignedTo, { assignedProject: null });
+    }
+
+    // Assign new user
+    project.assignedTo = userId;
+    await project.save();
 
     await User.findByIdAndUpdate(userId, { assignedProject: project._id });
 
-    res.json(project);
+    const populatedProject = await Project.findById(id).populate("assignedTo", "username email");
+
+    res.json(populatedProject);
   } catch (err) {
     console.error("Assign user error:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 exports.unassignUserFromProject = async (req, res) => {
   try {
@@ -73,12 +81,10 @@ exports.unassignUserFromProject = async (req, res) => {
     if (!decoded) return res.status(403).json({ message: "Only admin can unassign users" });
 
     const { id } = req.params;
-
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
     const userId = project.assignedTo;
-
 
     project.assignedTo = null;
     await project.save();
@@ -101,22 +107,35 @@ exports.updateProject = async (req, res) => {
     if (!decoded) return res.status(403).json({ message: "Only admin can update projects" });
 
     const { id } = req.params;
-    const { name, modules } = req.body;
+    const { name, modules, assignedTo } = req.body;
 
-    const project = await Project.findByIdAndUpdate(
-      id,
-      { name, modules },
-      { new: true }
-    ).populate("assignedTo", "username email");
-
+    const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    res.json(project);
+    // Unassign previous user if assignedTo is changed
+    if (assignedTo && project.assignedTo?.toString() !== assignedTo) {
+      if (project.assignedTo) {
+        await User.findByIdAndUpdate(project.assignedTo, { assignedProject: null });
+      }
+      await User.findByIdAndUpdate(assignedTo, { assignedProject: project._id });
+      project.assignedTo = assignedTo;
+    }
+
+    // Update name and modules
+    project.name = name;
+    project.modules = modules || [];
+
+    await project.save();
+
+    const populatedProject = await Project.findById(id).populate("assignedTo", "username email");
+
+    res.json(populatedProject);
   } catch (err) {
     console.error("Update project error:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 
 exports.getProjects = async (req, res) => {
@@ -176,3 +195,12 @@ exports.deleteProject = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.viewModels=async (req, res) => {
+  const { path: filePath } = req.query;
+  if (!filePath) return res.status(400).json({ message: "File path required" });
+
+  if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+
+  res.sendFile(filePath);
+}

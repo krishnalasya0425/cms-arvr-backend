@@ -41,9 +41,11 @@ exports.registerUser = async (req, res) => {
 
 // Login now uses username + password
 exports.loginUser = async (req, res) => {
-  const { username, password } = req.body; // only username here
+  const { username, email, password } = req.body;
+
+
   try {
-    const user = await User.findOne({ username }); // find by username
+   const user = await User.findOne(email ? { email } : { username });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await user.matchPassword(password);
@@ -62,6 +64,16 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+// controllers/authController.js (new function)
+exports.adminExists = async (req, res) => {
+  try {
+    const admin = await User.findOne({ role: "admin" });
+    res.json({ exists: !!admin });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ exists: false });
+  }
+};
 
 
 exports.authMiddleware = (req, res, next) => {

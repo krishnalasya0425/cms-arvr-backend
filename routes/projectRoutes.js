@@ -8,6 +8,7 @@ const {
   deleteProject,
   getProjectDetails,
   updateProject,
+  viewModels
 } = require("../controllers/projectController");
 
 const { authMiddleware } = require("../controllers/authController");
@@ -22,5 +23,5 @@ router.put("/:id/unassign", unassignUserFromProject);
 router.get("/", authMiddleware, getProjects);
 router.get("/:id", authMiddleware, getProjectDetails);
 router.delete("/:id", authMiddleware, deleteProject);
-
+router.get("/models/view",viewModels)
 module.exports = router;
